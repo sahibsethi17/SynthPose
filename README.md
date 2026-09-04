@@ -284,6 +284,60 @@ EXR, so nothing downstream needs an EXR reader.
 
 ---
 
+## The sim-to-real gap, measured
+
+The project claims synthetic-to-*real* transfer, so the size of that gap is a result the
+reader is owed. Photographs are the real test and need a camera; what can be measured
+without one is how the model degrades under corruptions that separate a render from a
+photograph. `tools/domain_shift_eval.py` applies each to the held-out test split at
+increasing severity -- including compositing objects onto procedural clutter using their
+depth masks, which is the closest available stand-in for "photographed on a real desk".
+
+| corruption | clean | mild | severe | worst-case change |
+|---|---|---|---|---|
+| **background clutter** | 16.1 deg | 73.5 deg | **99.9 deg** | **+83.9 deg** |
+| jpeg artefacts | 16.1 deg | 18.8 deg | 87.1 deg | +71.0 deg |
+| defocus blur | 16.1 deg | 17.6 deg | 52.3 deg | +36.2 deg |
+| sensor noise | 16.1 deg | 19.1 deg | 29.2 deg | +13.1 deg |
+| **white balance** | 16.1 deg | 16.4 deg | **17.0 deg** | **+1.0 deg** |
+
+The pattern is the finding. **The model is nearly immune to what the generator randomised
+-- lighting colour and material, +1.0 deg -- and collapses on the one thing it never varied:
+background.** Even mild clutter drops accuracy within 30 deg from 93% to 21%; at full
+clutter, 99.9 deg mean error is barely distinguishable from the 126 deg chance baseline.
+That is domain randomisation working and its absence failing, measured in one experiment,
+and it says where the effort belongs: adding backgrounds and HDRI lighting to Phase 1,
+not tuning the model.
+
+It also predicts the outcome of the photograph test honestly -- a mug on a desk is exactly
+the cluttered-background condition -- so the expectation going in is failure, and the
+interesting question is by how much.
+
+### Running the photograph test
+
+`model/predict_real.py` takes a folder of photographs. Absolute pose labels are
+unavailable by hand -- the problem that motivated synthetic data in the first place -- so
+there are two honest ways to score it:
+
+*Qualitative*: predict a pose per photo and draw the predicted orientation on the image.
+
+*Quantitative, without pose labels*: photograph the object rotating in known increments
+(a mug on a plate, turned 30 deg at a time). Absolute pose is still unlabellable, but the
+**relative** rotation between consecutive frames is known exactly, and
+`--turntable-step 30` scores predicted relative rotations against it.
+
+```bash
+.venv/bin/python model/predict_real.py --images real_photos/ --turntable-step 30
+```
+
+A rotation is only meaningful against a reference orientation, and the model's reference
+is how the object was built in Blender: `+Z` up through the cup axis from base to rim,
+`+X` out through the handle. Photographs must use the same convention or the absolute
+numbers are unanchored.
+
+**This section reports no real-photograph results because none have been captured yet.**
+The harness and the protocol are in place; the numbers are not, and are not claimed.
+
 ## Limitations
 
 - **Validation error was still falling at epoch 25.** The final number is a stopping
@@ -301,7 +355,8 @@ EXR, so nothing downstream needs an EXR reader.
   detect and crop first.
 - **Three procedural categories**, not scanned real objects.
 - **No sim-to-real evaluation yet.** The "synthetic-to-real" claim is untested against
-  real photographs.
+  real photographs. The domain-shift measurement above predicts it will fail on cluttered
+  backgrounds, but predicting a failure is not the same as measuring one.
 
 ---
 
@@ -310,7 +365,8 @@ EXR, so nothing downstream needs an EXR reader.
 ```
 blender_gen/   geometry.py (pure-numpy pose math), assets.py, scene_builder.py, generate.py
 model/         rotation.py, dataset.py, model.py, train.py, evaluate.py
-tools/         verify_dataset.py, check_ambiguity.py, dataset_stats.py
+model/         ... predict_real.py (sim-to-real inference on photographs)
+tools/         verify_dataset.py, check_ambiguity.py, dataset_stats.py, domain_shift_eval.py
 tests/         test_rotation_parity.py
 data/          generated dataset (gitignored)
 results/       metrics, verification overlays, prediction comparisons
