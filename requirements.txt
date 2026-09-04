@@ -1,0 +1,6 @@
+# Phase 1 (dataset generation) — install into a Python 3.13 venv:
+#   python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+bpy==5.2.1          # Blender 5.2 LTS as an importable module (no GUI install needed)
+numpy>=2.0
+pillow>=11          # verification overlays
+OpenEXR>=3.4        # reads the multilayer depth EXR Blender 5.x emits

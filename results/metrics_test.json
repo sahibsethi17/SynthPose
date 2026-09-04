@@ -1,0 +1,40 @@
+{
+  "checkpoint": "checkpoints/improved/best.pt",
+  "split": "test",
+  "n": 2000,
+  "chance_rot_error_deg": 126.0,
+  "overall": {
+    "rot_mean_deg": 15.87,
+    "rot_median_deg": 12.0,
+    "rot_p90_deg": 26.92,
+    "acc_10deg": 0.3805,
+    "acc_30deg": 0.9295,
+    "trans_rel_err": 0.1361
+  },
+  "per_category": {
+    "suzanne": {
+      "n": 665,
+      "rot_mean_deg": 16.51,
+      "rot_median_deg": 12.16,
+      "acc_10deg": 0.3579,
+      "acc_30deg": 0.9308,
+      "trans_rel_err": 0.1305
+    },
+    "mug": {
+      "n": 664,
+      "rot_mean_deg": 14.95,
+      "rot_median_deg": 11.62,
+      "acc_10deg": 0.3991,
+      "acc_30deg": 0.9307,
+      "trans_rel_err": 0.1335
+    },
+    "bracket": {
+      "n": 671,
+      "rot_mean_deg": 16.14,
+      "rot_median_deg": 12.02,
+      "acc_10deg": 0.3845,
+      "acc_30deg": 0.927,
+      "trans_rel_err": 0.1443
+    }
+  }
+}
