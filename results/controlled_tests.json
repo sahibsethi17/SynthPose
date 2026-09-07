@@ -1,0 +1,104 @@
+{
+  "extrapolation": {
+    "distance_m": [
+      {
+        "value": 2.0,
+        "in_train": false,
+        "mean": 39.44760957082596,
+        "median": 22.633391649762686
+      },
+      {
+        "value": 2.4,
+        "in_train": false,
+        "mean": 15.319711721366653,
+        "median": 11.70858144190299
+      },
+      {
+        "value": 2.8,
+        "in_train": true,
+        "mean": 12.492136067033298,
+        "median": 13.229364094151201
+      },
+      {
+        "value": 3.5,
+        "in_train": true,
+        "mean": 11.424844545804287,
+        "median": 12.919149262786249
+      },
+      {
+        "value": 4.2,
+        "in_train": true,
+        "mean": 11.20984631386565,
+        "median": 10.797550208113538
+      },
+      {
+        "value": 5.0,
+        "in_train": true,
+        "mean": 13.897985476096263,
+        "median": 10.917768430819372
+      },
+      {
+        "value": 5.8,
+        "in_train": false,
+        "mean": 25.80414895857314,
+        "median": 15.820609522034308
+      },
+      {
+        "value": 6.6,
+        "in_train": false,
+        "mean": 37.09270639705902,
+        "median": 25.990822235246327
+      },
+      {
+        "value": 7.5,
+        "in_train": false,
+        "mean": 43.63076748567678,
+        "median": 24.88822874820973
+      }
+    ],
+    "scale": [
+      {
+        "value": 0.5,
+        "in_train": false,
+        "mean": 53.43152809425174,
+        "median": 46.861350024652296
+      },
+      {
+        "value": 0.65,
+        "in_train": false,
+        "mean": 37.22586227656689,
+        "median": 26.33384897842466
+      },
+      {
+        "value": 0.8,
+        "in_train": true,
+        "mean": 20.566603415180303,
+        "median": 18.2661134929069
+      },
+      {
+        "value": 1.1,
+        "in_train": true,
+        "mean": 10.727333038703868,
+        "median": 9.576557479933903
+      },
+      {
+        "value": 1.4,
+        "in_train": true,
+        "mean": 12.520588242714185,
+        "median": 12.432476256596281
+      },
+      {
+        "value": 1.7,
+        "in_train": false,
+        "mean": 14.586424024609158,
+        "median": 12.904431411295917
+      },
+      {
+        "value": 2.0,
+        "in_train": false,
+        "mean": 32.51551932644461,
+        "median": 23.235568815683482
+      }
+    ]
+  }
+}

@@ -284,6 +284,66 @@ EXR, so nothing downstream needs an EXR reader.
 
 ---
 
+## Testing beyond the aggregate metric
+
+A single mean hides structure, and a held-out split cannot say *why* a model is right.
+Two further tools probe that: `tools/stress_test.py` slices per-sample test error by every
+parameter the generator recorded, and `tools/controlled_tests.py` renders purpose-built
+scenes in which the correct answer is known analytically.
+
+### Camera-roll equivariance
+
+Re-render one fixed scene changing *only* the camera's roll. The true rotation in the
+camera frame changes by exactly that roll, so a model reasoning geometrically must track
+it; a model leaning on an upright prior would degrade at unusual rolls.
+
+| roll | 0 | 30 | 60 | 90 | 120 | 150 | 180 | 210 | 240 | 270 | 300 | 330 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| mean err (deg) | 13.6 | 12.2 | 13.4 | 10.8 | 13.8 | 15.2 | 17.6 | 11.3 | 13.1 | 14.3 | 13.5 | 12.2 |
+
+Flat within a 6.8 deg spread -- no upright prior, which is what uniform roll sampling in
+Phase 1 was for.
+
+The same experiment yields something more useful. Measuring whether *consecutive*
+predictions differ by the roll actually applied gives **3.5 deg median consistency error**,
+against 13.4 deg absolute error on the same renders. The model tracks *changes* in
+orientation far better than it pins down absolute orientation: its errors are
+systematically biased per scene and cancel in the relative measure. That matters because
+relative rotation is the only quantity measurable on unlabelled photographs -- so 3.5 deg
+is the synthetic reference the turntable test below is scored against.
+
+### Where accuracy falls off: apparent size, not distance or scale
+
+Sweeping camera distance (holding scale) and object scale (holding distance) each produce
+a U-shaped error curve that degrades sharply outside the training range:
+
+| swept | value | apparent size `s/z` | mean err |
+|---|---|---|---|
+| scale | 0.50 | 0.128 | 53.4 deg |
+| distance | 6.60 m | 0.167 | 37.1 deg |
+| scale | 0.65 | 0.167 | 37.2 deg |
+| distance | 4.20 m | 0.262 | 11.2 deg |
+| scale | 1.10 | 0.282 | **10.7 deg** |
+| distance | 2.80 m | 0.393 | 12.5 deg |
+| scale | 1.70 | 0.436 | 14.6 deg |
+| distance | 2.00 m | 0.550 | 39.5 deg |
+
+**The two independent sweeps collapse onto a single curve.** At matched apparent size they
+agree to 2.6 deg on average, several pairs to under 1 deg. Distance and scale are not
+separate factors -- both act only through `s/z`, which is precisely the quantity a single
+image can determine and the reason the model regresses `t/s` rather than `t`. A design
+decision made from the geometry turns out to describe the model's empirical behaviour.
+
+Accuracy is best for `s/z` in roughly 0.26-0.39 and degrades in both directions. Slicing
+the held-out split agrees: error is 13.6 deg when the object covers 8-12% of the frame,
+rising to 25.5 deg below 4% (too little signal) and 18.2 deg above 22% (truncation at the
+frame edge). Camera elevation, focal length and absolute distance are all comparatively
+flat.
+
+The practical consequence is a framing rule for photographs: **the object should span
+roughly a third of the frame.** Outside that, accuracy falls for reasons that have nothing
+to do with the sim-to-real gap.
+
 ## The sim-to-real gap, measured
 
 The project claims synthetic-to-*real* transfer, so the size of that gap is a result the
@@ -366,7 +426,8 @@ The harness and the protocol are in place; the numbers are not, and are not clai
 blender_gen/   geometry.py (pure-numpy pose math), assets.py, scene_builder.py, generate.py
 model/         rotation.py, dataset.py, model.py, train.py, evaluate.py
 model/         ... predict_real.py (sim-to-real inference on photographs)
-tools/         verify_dataset.py, check_ambiguity.py, dataset_stats.py, domain_shift_eval.py
+tools/         verify_dataset.py, check_ambiguity.py, dataset_stats.py,
+               domain_shift_eval.py, stress_test.py, controlled_tests.py
 tests/         test_rotation_parity.py
 data/          generated dataset (gitignored)
 results/       metrics, verification overlays, prediction comparisons
