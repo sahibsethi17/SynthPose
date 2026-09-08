@@ -58,8 +58,12 @@ def check_sample(root: Path, meta: dict, draw_to: Path | None):
 
     if not meta.get("depth"):
         return None
-    depth = np.load(root / meta["depth"])["depth"].astype(np.float32)
-    fg = depth > 0
+    blob = np.load(root / meta["depth"])
+    depth = blob["depth"].astype(np.float32)
+    # With a ground plane and distractors in frame, "depth > 0" is the whole scene, not
+    # the target. Datasets generated with clutter carry an explicit target mask; fall back
+    # to the depth foreground for the earlier flat-background datasets.
+    fg = blob["mask"].astype(bool) if "mask" in blob.files else (depth > 0)
     if fg.sum() < 20:
         return None
 
@@ -72,6 +76,9 @@ def check_sample(root: Path, meta: dict, draw_to: Path | None):
 
     # The object centre's depth must lie inside the rendered depth range.
     fg_depth = depth[fg]
+    fg_depth = fg_depth[fg_depth > 0]
+    if fg_depth.size < 10:
+        return None
     radius = s * np.abs(bbox_local).max() * np.sqrt(3)
     depth_ok = (fg_depth.min() - 1e-2 <= t[2] <= fg_depth.max() + radius)
 

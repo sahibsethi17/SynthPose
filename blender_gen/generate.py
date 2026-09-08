@@ -62,6 +62,8 @@ def parse_args(argv=None):
     p.add_argument("--dist", nargs=2, type=float, default=(2.8, 5.0))
     p.add_argument("--elev", nargs=2, type=float, default=(-25.0, 75.0))
     p.add_argument("--no-depth", action="store_true", help="skip depth maps (smaller dataset)")
+    p.add_argument("--no-clutter", action="store_true",
+                   help="flat backgrounds only, reproducing the pre-clutter dataset")
     p.add_argument("--start", type=int, default=0, help="resume from this sample index")
     return p.parse_args(argv)
 
@@ -174,6 +176,7 @@ def main():
         sb.reset_scene()
         obj = assets.build(category, rng)
         material = sb.apply_material(obj, rng)
+        world_kind = sb.randomise_world(rng) if not args.no_clutter else None
         sb.randomise_lighting(rng)
         cam = sb.add_camera(rng)
 
@@ -199,6 +202,23 @@ def main():
         assert np.allclose(expected[:3, :3], scale * R, atol=1e-4), "rotation mismatch"
         assert np.allclose(expected[:3, 3], t, atol=1e-4), "translation mismatch"
 
+        # Clutter is added only after the camera is placed, because both pieces depend on
+        # where the camera ended up. A ground plane is only valid when the camera is above
+        # it -- elevation is sampled down to -25 deg, and from below the plane would hide
+        # the object completely. Distractors too close to the camera would fill the frame.
+        clutter = []
+        if not args.no_clutter:
+            eye = cam_to_world[:3, 3]
+            elev_deg = np.degrees(np.arcsin(eye[2] / max(np.linalg.norm(eye), 1e-9)))
+            if elev_deg > 8.0 and rng.random() < 0.75:
+                clutter.append(sb.add_ground_plane(rng, drop=1.0 + 0.6 * scale))
+            for d in sb.add_distractors(rng):
+                if np.linalg.norm(np.array(d.location) - eye) < 1.5:
+                    bpy.data.objects.remove(d, do_unlink=True)   # would fill the frame
+                else:
+                    clutter.append(d)
+            bpy.context.view_layer.update()
+
         stem = f"{idx:06d}"
         rgb_path = out / "images" / split / f"rgb_{stem}"
         scene.render.filepath = str(rgb_path)
@@ -211,11 +231,44 @@ def main():
         with quiet():
             bpy.ops.render.render(write_still=True)
 
+        # Silhouette of the TARGET alone. With a ground plane and distractors in frame,
+        # "depth > 0" no longer means "object" -- so verification, coverage statistics and
+        # any masking downstream would silently start measuring the scenery instead.
+        # EEVEE in Blender 5.2 exposes no object-index pass (only Cryptomatte), so the
+        # mask comes from a second cheap render with the clutter hidden and the film
+        # transparent, where alpha is exactly the target.
+        mask = None
+        if clutter and not args.no_depth:
+            sb.set_clutter_visible(clutter, False)
+            if depth_node is not None:
+                depth_node.mute = True
+            scene.render.film_transparent = True
+            scene.render.image_settings.color_mode = "RGBA"
+            prev_samples = scene.eevee.taa_render_samples
+            scene.eevee.taa_render_samples = 4
+            scene.render.filepath = str(tmp_dir / f"m_{stem}")
+            with quiet():
+                bpy.ops.render.render(write_still=True)
+            mask_png = tmp_dir / f"m_{stem}.png"
+            if mask_png.exists():
+                from PIL import Image
+                mask = np.asarray(Image.open(mask_png).convert("RGBA"))[..., 3] > 127
+                mask_png.unlink()
+            scene.eevee.taa_render_samples = prev_samples
+            scene.render.film_transparent = False
+            scene.render.image_settings.color_mode = "RGB"
+            if depth_node is not None:
+                depth_node.mute = False
+            sb.set_clutter_visible(clutter, True)
+
         if depth_node is not None:
             exr = next(tmp_dir.glob(f"d_{stem}*.exr"), None)
             if exr is not None:
-                np.savez_compressed(out / "depth" / split / f"depth_{stem}.npz",
-                                    depth=read_depth_exr(exr))
+                depth = read_depth_exr(exr)
+                payload = {"depth": depth}
+                # Without clutter the depth foreground already is the target.
+                payload["mask"] = mask if mask is not None else (depth > 0)
+                np.savez_compressed(out / "depth" / split / f"depth_{stem}.npz", **payload)
                 exr.unlink()
 
         meta = {
@@ -247,6 +300,9 @@ def main():
             },
             "object": {"bbox_local": bbox_local.tolist(), "R_obj_world": R_obj.tolist()},
             "material": material,
+            "clutter": None if args.no_clutter else {
+                "world": world_kind, "n_objects": len(clutter),
+                "ground_plane": any(o.name == "ground" for o in clutter)},
             "blender": {"cam_matrix_world": cam_to_world.tolist()},
         }
         (out / "labels" / split / f"meta_{stem}.json").write_text(json.dumps(meta))
