@@ -9,6 +9,9 @@ geometrically verified), a trained model at **15.9 deg mean rotation error** on 
 test set against a ~126 deg chance baseline, and per-category evaluation with rendered
 prediction comparisons.
 
+**[Visual walkthrough &rarr;](https://claude.ai/code/artifact/a094b5ac-978b-409e-bb0c-86d58bbedbf6)**
+&mdash; the pipeline, results and findings as a single illustrated page.
+
 ![Dataset samples](results/dataset_samples.png)
 
 ---
